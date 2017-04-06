@@ -89,6 +89,7 @@ public class ChooseFileActivity extends AppCompatActivity {
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 FileInfo info = (FileInfo) parent.getItemAtPosition(position);
                 filePath = info.filePath;
+                fileName = info.fileName;
                 closePage();
             }
         });

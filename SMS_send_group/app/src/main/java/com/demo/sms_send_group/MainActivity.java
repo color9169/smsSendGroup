@@ -8,8 +8,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Process;
 import android.support.v4.app.ActivityCompat;
 import android.telephony.SmsManager;
+import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -49,6 +52,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     String filePath;
     String fileName;
     private Context mContext;
+    boolean isSuccess = false;
 
     /**
      * 发送与接收的广播
@@ -103,8 +107,16 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                 startActivityForResult(intent, 1);
                 break;
             case R.id.send_sms_btn:
+                Log.i("sms_manager", "send on click ");
                 if (filePath != null) {
-                    mHandler.sendEmptyMessage(1);
+                    if (sendSmsContentEdit.getEditableText().toString().trim().equals("")) {
+                        Toast.makeText(getApplicationContext(), "内容不能为空", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (!isSuccess) {
+                        isSuccess = true;
+                        mHandler.sendEmptyMessage(1);
+                    }
                 } else {
                     Toast.makeText(getApplicationContext(), "请先选择文件", Toast.LENGTH_SHORT).show();
                 }
@@ -149,7 +161,6 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         super.onActivityResult(requestCode, resultCode, data);
         switch (resultCode) {
             case 1:
-
                 filePath = data.getStringExtra("FilePath");
                 fileName = data.getStringExtra("FileName");
                 fileNameTxt.setText("文件名称：" + fileName);
@@ -168,6 +179,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                     sendProgress.setVisibility(View.VISIBLE);
 
                     String contentStr = sendSmsContentEdit.getText().toString();
+
                     for (int i = 0; i < lists.size(); i++) {
                         SmsEntity s = lists.get(i);
                         String content = contentStr.replace("xxx", s.getName());
@@ -183,19 +195,22 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                         Intent deliverIntent = new Intent(DELIVERED_SMS_ACTION);
                         PendingIntent deliverPI = PendingIntent.getBroadcast(mContext, 0, deliverIntent, 0);
 
+                        Log.i("sms_manager", "phone number = " + phone + "      content   " + content + "   index = " + i);
+
+
                         if (content.length() > 70) {
                             ArrayList<String> list = manager.divideMessage(content);  //因为一条短信有字数限制，因此要将长短信拆分
-                            for (String text : list) {
-                                manager.sendTextMessage(phone, null, text, sentPI, deliverPI);
-                            }
+                            manager.sendMultipartTextMessage(phone, null, list, null, null);
                         } else {
-                            manager.sendTextMessage(phone, null, content, sentPI, deliverPI);
+                            manager.sendTextMessage(phone, null, content, null, null);
+//                            manager.sendTextMessage(phone, null, content, sentPI, deliverPI);
                         }
                     }
                     mHandler.sendEmptyMessage(2);
                     break;
 
                 case 2:
+                    isSuccess = false;
                     sendProgress.setVisibility(View.GONE);
                     Toast.makeText(getApplicationContext(), "发送完毕", Toast.LENGTH_SHORT).show();
                     break;
@@ -203,6 +218,27 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
             return false;
         }
     });
+
+    // 记录时间
+    private long mExitTime;
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if ((System.currentTimeMillis() - mExitTime) > 2000) {
+                Toast.makeText(this, "再按一次退出应用", Toast.LENGTH_SHORT).show();
+//                Snackbar.make(mainLinearLayout, "再按一次退出应用!", Snackbar.LENGTH_SHORT).show();
+                mExitTime = System.currentTimeMillis();
+            } else {
+                finish();
+                int pid = Process.myPid();
+                Process.killProcess(pid);
+            }
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+
+    }
 
 //    private BroadcastReceiver sendMessage = new BroadcastReceiver() {
 //
